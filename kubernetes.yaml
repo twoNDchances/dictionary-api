@@ -1,0 +1,198 @@
+### Resource isolation section ###
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dictionary-api
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dictionary-api-resource-quota
+  namespace: dictionary-api
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 1Gi
+    limits.cpu: "4"
+    limits.memory: 2Gi
+---
+### Configuraion section ###
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config-map
+  namespace: dictionary-api
+data:
+  hostname: database-stateful-set-0.database-service.dictionary-api
+  port: "3306"
+  database: dictionary-api
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: database-secret
+  namespace: dictionary-api
+type: Opaque
+data:
+  username: cm9vdA==
+  password: bXlzcWw=
+---
+### Database section ###
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: database-persistent-volume
+  namespace: dictionary-api
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: "/mnt/dictionary-api-data"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: database-stateful-set
+  namespace: dictionary-api
+spec:
+  selector:
+    matchLabels:
+      database: mysql
+  serviceName: database-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        database: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:latest
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-secret
+                  key: password
+                  optional: false
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: database-config-map
+                  key: database
+                  optional: false
+          resources:
+            requests:
+              cpu: 500m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+          volumeMounts:
+            - name: database-persistent-volume-claim
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: database-persistent-volume-claim
+        namespace: dictionary-api
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service
+  namespace: dictionary-api
+spec:
+  selector:
+    database: mysql
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+### Backend section ###
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: dictionary-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      backend: dictionary-api
+  template:
+    metadata:
+      labels:
+        backend: dictionary-api
+    spec:
+      containers:
+        - name: dictionary-api
+          image: secondchances/dictionary-api
+          env:
+            - name: USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: database-secret
+                  key: username
+                  optional: false
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-secret
+                  key: password
+                  optional: false
+            - name: HOSTNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: database-config-map
+                  key: hostname
+                  optional: false
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: database-config-map
+                  key: port
+                  optional: false
+            - name: DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: database-config-map
+                  key: database
+                  optional: false
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: dictionary-api
+spec:
+  selector:
+    backend: dictionary-api
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30088
