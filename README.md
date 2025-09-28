@@ -68,3 +68,11 @@ DELETE api/v1/dictionaries # delete a record with id or key
     "key": "other foo"
 }
 ```
+
+---
+
+## Architecture
+
+- Kubernetes
+
+![Kubernetes Architecture](images/kubernetes-manifest.png)
