@@ -47,7 +47,7 @@ Dictionary API Backend has some endpoint with different method for CRUD about a 
 ```bash
 GET api/v1/dictionaries # list all records
 
-GET api/v1/dictionaries/{key} # specific a record with key
+GET api/v1/dictionaries/{id} # specific a record with id
 
 POST api/v1/dictionaries # create new record
 {
@@ -55,18 +55,12 @@ POST api/v1/dictionaries # create new record
     "value": "bar"
 }
 
-PATCH api/v1/dictionaries # update a record with id
+PATCH api/v1/dictionaries/{id} # update a record with id
 {
-    "id": 1,
-    "key": "other foo",
     "value": "other bar"
 }
 
-DELETE api/v1/dictionaries # delete a record with id or key
-{
-    "id": 1,
-    "key": "other foo"
-}
+DELETE api/v1/dictionaries/{id} # delete a record with id
 ```
 
 ---
