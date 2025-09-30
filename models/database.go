@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"errors"
@@ -70,7 +70,7 @@ func (d *Database) connect() (*gorm.DB, error) {
 	return DB, nil
 }
 
-func (d *Database) init() (err error) {
+func (d *Database) Init() (err error) {
 	database := Database{
 		Username: d.Username,
 		Password: d.Password,
